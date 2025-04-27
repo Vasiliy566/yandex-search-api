@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from enum import Enum
 from xml.etree.ElementTree import ParseError, fromstring
 
@@ -6,8 +7,11 @@ import requests
 import base64
 import json
 import time
-from typing import Optional, Dict
-from exceptions import YandexSearchAPIError, YandexSearchTimeoutError, YandexAuthError
+from typing import Dict
+
+from pydantic import BaseModel
+
+from .exceptions import YandexSearchAPIError, YandexSearchTimeoutError, YandexAuthError
 
 logging.getLogger('YandexSearchApi').addHandler(logging.NullHandler())
 logger = logging.getLogger('YandexSearchApi')
@@ -30,6 +34,14 @@ class Region(Enum):
     KAZAKHSTAN = "159"
 
 
+class IamTokenResponse(BaseModel):
+    expiresAt: datetime
+    iamToken: str
+
+    def expired(self) -> bool:
+        now = datetime.now()
+        return now >= self.expiresAt
+
 class YandexSearchAPIClient:
     """
     Yandex Search API client for Python
@@ -42,32 +54,30 @@ class YandexSearchAPIClient:
     def __init__(
             self,
             folder_id: str,  # https://yandex.cloud/en-ru/docs/resource-manager/operations/folder/get-id
-            *,
-            iam_token: Optional[str] = None,  # https://yandex.cloud/en-ru/docs/iam/operations/iam-token/create
-            oauth_token: Optional[str] = None  # https://yandex.cloud/en-ru/docs/iam/concepts/authorization/oauth-token
+            oauth_token: str  # https://yandex.cloud/en-ru/docs/iam/concepts/authorization/oauth-token
     ):
         """
         Initialize the client with either IAM token or OAuth token
 
         Args:
             folder_id: Yandex Cloud folder ID
-            iam_token: Yandex Cloud IAM token (either this or oauth_token must be provided)
             oauth_token: Yandex OAuth token (will be converted to IAM token if iam_token not provided)
 
         Raises:
             YandexAuthError: If neither token is provided or token conversion fails
         """
-        if not iam_token and not oauth_token:
-            raise YandexAuthError("Either iam_token or oauth_token must be provided")
-
         self.folder_id = folder_id
+        self.oauth_token = oauth_token
+        self.__iam_token_data = self._get_iam_token_from_oauth(oauth_token)  # type: ignore
 
-        if iam_token:
-            self.iam_token = iam_token
-        else:
-            self.iam_token = self._get_iam_token_from_oauth(oauth_token)  # type: ignore
+    @property
+    def _iam_token(self) -> str:
+        if self.__iam_token_data.expired():
+            self.__iam_token_data = self._get_iam_token_from_oauth(self.oauth_token)
+            logger.debug(f"IAM token is expired, rewew: {self.__iam_token_data.expired()}")
+        return self.__iam_token_data.iamToken
 
-    def _get_iam_token_from_oauth(self, oauth_token: str) -> str:
+    def _get_iam_token_from_oauth(self, oauth_token: str) -> IamTokenResponse:
         """
         Convert OAuth token to IAM token
 
@@ -87,7 +97,7 @@ class YandexSearchAPIClient:
                 timeout=10
             )
             response.raise_for_status()
-            return response.json().get("iamToken")
+            return IamTokenResponse.model_validate(response.json())
         except Exception as e:
             raise YandexAuthError(f"Failed to get IAM token from OAuth: {str(e)}")
 
@@ -103,7 +113,7 @@ class YandexSearchAPIClient:
 
     ) -> str:
         headers = {
-            "Authorization": f"Bearer {self.iam_token}",
+            "Authorization": f"Bearer {self._iam_token}",
             "Content-Type": "application/json"
         }
 
@@ -148,7 +158,7 @@ class YandexSearchAPIClient:
             YandexSearchAPIError: If the API request fails
         """
         headers = {
-            "Authorization": f"Bearer {self.iam_token}"
+            "Authorization": f"Bearer {self._iam_token}"
         }
 
         try:
@@ -192,7 +202,7 @@ class YandexSearchAPIClient:
             raise YandexSearchAPIError(f"Failed to decode results: {str(e)}")
 
     @staticmethod
-    def extract_yandex_search_links(xml_content: str):
+    def _extract_yandex_search_links(xml_content: str):
         urls = []
 
         try:
@@ -248,7 +258,8 @@ class YandexSearchAPIClient:
             interval: int = 1,
     ) -> list[str]:
         results = self.search_and_wait(query_text, search_type=search_type, n_links=n_links, max_wait=max_wait, interval=interval)
-        if len(results) != n_links:
+        links = self._extract_yandex_search_links(results)
+        if len(links) != n_links:
             logger.warning(f"Found {len(results)} links but expected {n_links} links.")
 
-        return self.extract_yandex_search_links(results)
+        return links
