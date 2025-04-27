@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yandex_search_api"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
   "requests==2.32.3",
   "pydantic==2.11.3"
