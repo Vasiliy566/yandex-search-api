@@ -11,6 +11,7 @@ A Python client for interacting with Yandex's Search API, providing easy access 
 - Configurable search parameters (region, search type, number of results)
 - Asynchronous operation with timeout handling
 
+
 ## Installation
 
 ```bash
