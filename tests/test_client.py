@@ -1,5 +1,5 @@
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 from xml.etree.ElementTree import Element, SubElement
 
@@ -16,13 +16,13 @@ def client():
 @pytest.fixture(autouse=True)
 def mock_yandex_auth(requests_mock):
     requests_mock.post(YandexSearchAPIClient.IAM_TOKEN_URL,
-                       json={'expiresAt': str(datetime.now() + timedelta(days=1)), "iamToken": "test_iam_token"})
+                       json={'expiresAt': str(datetime.now(tz=timezone.utc) + timedelta(days=1)), "iamToken": "test_iam_token"})
 
 
 @pytest.fixture
 def mock_yandex_auth_expired(requests_mock):
     requests_mock.post(YandexSearchAPIClient.IAM_TOKEN_URL,
-                       json={'expiresAt': str(datetime.now() - timedelta(days=1)), "iamToken": "test_iam_token"})
+                       json={'expiresAt': str(datetime.now(tz=timezone.utc) - timedelta(days=1)), "iamToken": "test_iam_token"})
 
 
 @pytest.fixture
@@ -31,13 +31,13 @@ def mock_yandex_search(requests_mock):
                        json={'id': "test_operation_id"})
 
 def test_iam_token_not_expired():
-    future_expiry = datetime.now() + timedelta(hours=1)
+    future_expiry = datetime.now(tz=timezone.utc) + timedelta(hours=1)
     token = IamTokenResponse(expiresAt=future_expiry, iamToken="test_token")
     assert not token.expired()
 
 
 def test_iam_token_expired():
-    past_expiry = datetime.now() - timedelta(hours=1)
+    past_expiry = datetime.now(tz=timezone.utc) - timedelta(hours=1)
     token = IamTokenResponse(expiresAt=past_expiry, iamToken="test_token")
     assert token.expired()
 
@@ -99,10 +99,7 @@ def test_get_search_results_not_done():
             client.get_search_results("test_op_id")
 
 
-# Test search_and_wait
 def test_search_and_wait_success():
-    test_data = base64.b64encode(b"test_xml_data").decode('utf-8')
-
     with patch.object(YandexSearchAPIClient, 'search') as mock_search, \
             patch.object(YandexSearchAPIClient, '_check_operation_status') as mock_check, \
             patch.object(YandexSearchAPIClient, 'get_search_results') as mock_get_results:
