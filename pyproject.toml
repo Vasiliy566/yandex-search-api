@@ -39,4 +39,4 @@ dev = [
 
 [tool.poe.tasks]
 lint = "uv run ruff check --fix"
-tests = "uv run pytest tests"
+test = "uv run pytest tests"
