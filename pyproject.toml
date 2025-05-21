@@ -4,11 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yandex_search_api"
-version = "0.1.5"
+version = "0.1.7"
 dependencies = [
   "requests==2.31.0",
   "pydantic==2.11.3",
   "httpx==0.28.1",
+  "fastapi-jsonrpc>=3.4.1",
 ]
 authors = [
   { name="Vasiliy566", email="vasyaisaev31@gmail.com" },

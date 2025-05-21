@@ -1,0 +1,5 @@
+setuptools~=68.2.0
+pip~=23.2.1
+wheel~=0.41.2
+protobuf~=5.29.4
+requests~=2.32.3

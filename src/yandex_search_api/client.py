@@ -11,6 +11,7 @@ from typing import Dict
 
 from pydantic import BaseModel
 
+from .regions import Region
 from .exceptions import YandexSearchAPIError, YandexSearchTimeoutError, YandexAuthError
 
 logging.getLogger('YandexSearchApi').addHandler(logging.NullHandler())
@@ -25,13 +26,6 @@ class SearchType(Enum):
 class ResponseFormat(Enum):
     XML = "FORMAT_XML"
     HTML = "FORMAT_HTML"
-
-
-class Region(Enum):
-    RUSSIA = "225"
-    UKRAINE = "187"
-    BELARUS = "149"
-    KAZAKHSTAN = "159"
 
 
 class IamTokenResponse(BaseModel):
@@ -229,12 +223,13 @@ class YandexSearchAPIClient:
             query_text: str,
             *,
             search_type: SearchType = SearchType.RUSSIAN,
+            region: Region = Region.RUSSIA,
             max_wait: int = 300,
             interval: int = 1,
             n_links: int = 10,
     ) -> str:
 
-        operation_id = self.search(query_text, search_type=search_type, n_links=n_links)
+        operation_id = self.search(query_text, search_type=search_type, n_links=n_links, region=region)
         start_time = time.time()
 
         while time.time() - start_time < max_wait:
@@ -253,11 +248,12 @@ class YandexSearchAPIClient:
             self,
             query_text: str,
             search_type: SearchType = SearchType.RUSSIAN,
+            region: Region = Region.RUSSIA,
             n_links: int = 10,
             max_wait: int = 300,
             interval: int = 1,
     ) -> list[str]:
-        results = self.search_and_wait(query_text, search_type=search_type, n_links=n_links, max_wait=max_wait, interval=interval)
+        results = self.search_and_wait(query_text, search_type=search_type, n_links=n_links, region=region, max_wait=max_wait, interval=interval)
         links = self._extract_yandex_search_links(results)
         if len(links) != n_links:
             logger.warning(f"Found {len(results)} links but expected {n_links} links.")

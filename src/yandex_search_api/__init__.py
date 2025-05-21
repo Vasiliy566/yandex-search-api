@@ -1,5 +1,6 @@
-from .client import YandexSearchAPIClient, SearchType, ResponseFormat, Region, IamTokenResponse
+from .client import YandexSearchAPIClient, SearchType, ResponseFormat, IamTokenResponse
 from .exceptions import YandexSearchAPIError, YandexSearchTimeoutError, YandexAuthError
+from .regions import Region
 
 __all__ = [
     'YandexSearchAPIClient',
@@ -12,3 +13,4 @@ __all__ = [
     'IamTokenResponse',
 ]
 __version__ = '0.1.1'
+
